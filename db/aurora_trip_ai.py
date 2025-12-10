@@ -3,7 +3,7 @@ from bson.objectid import ObjectId
 import bcrypt
 
 
-MONGO_URI = "mongodb+srv://makdasansari_db_user:qidyTle91W2SJB3x@cluster0.yor7sac.mongodb.net/?appName=Cluster0"
+MONGO_URI = 
 DB_NAME = "aurora_trip_ai_db"
 
 client = MongoClient(MONGO_URI)
