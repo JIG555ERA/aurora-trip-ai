@@ -24,12 +24,6 @@ import pandas as pd
 #       export AMADEUS_API_KEY="..."
 #       export AMADEUS_API_SECRET="..."
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "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")
-RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "b58e49d636msh694028bab3ddeb0p1c2bdfjsnbf4a196093ba")
-AMADEUS_API_KEY = os.getenv("AMADEUS_API_KEY", "Q07WZC5nDYucN0iqAgz1turs4sByMtUk")
-AMADEUS_API_SECRET = os.getenv("AMADEUS_API_SECRET", "mq1BqngXxfJZ4F2x")
-
-IRCTC_RAPIDAPI_HOST = "irctc1.p.rapidapi.com"
 
 # Logging setup
 
@@ -43,8 +37,8 @@ logging.basicConfig(
 try:
     from groq import Groq  # type: ignore
 
-    if GROQ_API_KEY:
-        groq_client = Groq(api_key=GROQ_API_KEY)
+    if __:
+        groq_client = Groq(api_key=__)
         GROQ_AVAILABLE = True
         logging.info("Groq LLM available. Trip chatbot & AI helpers will use Llama 3.")
     else:
