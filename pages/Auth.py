@@ -4,16 +4,13 @@ import smtplib
 import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import db.aurora_trip_ai as atai
 
 # ====== Config ======
 st.set_page_config(page_title="Auth | A.T.A.I.", layout="centered")
 
-# Sender Email Credentials
 MAIL = st.secrets["auth"]["mail"]
 PASS = st.secrets["auth"]["pass"]
-
-# Allowed Users
-# allowed_users = st.secrets["users"]["allowed"]
 
 # ====== Functions ======
 
@@ -24,16 +21,11 @@ def send_otp(mail, otp):
     msg = MIMEMultipart()
     msg['From'] = MAIL
     msg['To'] = mail
-    msg['Subject'] = ' Verification Code'
+    msg['Subject'] = 'Verification Code'
 
     body = f"""
-    <div style="
-        text-align: center;
-        background-color: black;
-        color: white;
-        max-width: 400px;
-        font-size: 28px;
-        ">
+    <div style="text-align:center;background-color:black;color:white;
+    max-width:400px;font-size:28px;">
         <p>Your OTP Code:</p>
         <p><strong>{otp}</strong></p>
     </div>
@@ -57,33 +49,40 @@ def logout():
         "email": "",
         "otp": None,
         "otp_attempts": 0,
-        "otp_timestamp": 0
+        "otp_timestamp": 0,
+        "mode": "login"
     })
 
 # ====== Session Defaults ======
-st.session_state.setdefault("otp_sent", False)
-st.session_state.setdefault("otp", None)
-st.session_state.setdefault("authenticated", False)
-st.session_state.setdefault("email", "")
-st.session_state.setdefault("otp_attempts", 0)
-st.session_state.setdefault("otp_timestamp", 0)
+defaults = {
+    "otp_sent": False, "otp": None, "name": None, "authenticated": False,
+    "email": "", "otp_attempts": 0, "otp_timestamp": 0, "mode": "login"
+}
+for key, val in defaults.items():
+    st.session_state.setdefault(key, val)
 
 # ====== UI ======
 st.title(":grey[AURORA TRIP AI - AUTHENTICATION]")
 
-with st.expander('**:grey[Log IN]**'):
-    if not st.session_state.authenticated:
-        st.header(":blue[Log IN]")
-        st.info('**ⓘ You must be an authorized member to access the site.**')
+# Mode Switch (Login / Signup)
+mode = st.radio("Choose Action", ["Login", "Signup"])
+st.session_state.mode = mode.lower()
+
+with st.expander(f"**:grey[{mode}]**"):
+
+    # ---------------------- SIGNUP -----------------------
+    if mode == "Signup" and not st.session_state.authenticated:
+        st.header(":green[Create Account]")
+
         col1, col2 = st.columns(2)
+
         with col1:
-            email_input = st.text_input("**:grey[MAIL]**", value=st.session_state.email)
+            name_input = st.text_input("**Name**")
+            email_input = st.text_input("**Email**")
 
             if st.button("Send OTP"):
-                # if email_input not in allowed_users:
-                #     st.error("🚫 Unauthorized Email")
                 if time.time() - st.session_state.otp_timestamp < 60:
-                    st.warning("⏳ Please wait before resending OTP.")
+                    st.warning("⏳ Wait before resending OTP.")
                 else:
                     otp = generate_otp()
                     if send_otp(email_input, otp):
@@ -92,39 +91,47 @@ with st.expander('**:grey[Log IN]**'):
                         st.session_state.email = email_input
                         st.session_state.otp_timestamp = time.time()
                         st.session_state.otp_attempts = 0
-                        st.toast("✅ OTP sent to your email!")
+                        st.toast("✅ OTP sent!")
 
         with col2:
             if st.session_state.otp_sent:
-                entered_otp = st.text_input("**:grey[OTP]**")
+                entered_otp = st.text_input("**OTP**")
+                password_input = st.text_input("**Create Password**", type="password")
 
-                if st.button("Verify OTP"):
-                    if st.session_state.otp_attempts >= 3:
-                        st.error("❌ Too many attempts.")
-                        # if st.button("Restart"):
-                        #     logout()
-                    elif entered_otp == st.session_state.otp:
+                if st.button("Verify & Signup"):
+                    if entered_otp == st.session_state.otp:
+                        atai.store_user(
+                            name=name_input,
+                            email=email_input,
+                            password=password_input
+                        )
                         st.session_state.authenticated = True
-                        st.toast("🎉 Login successful!")
+                        st.toast("🎉 Signup Successful!")
                         st.switch_page("pages/Planner.py")
                     else:
-                        st.session_state.otp_attempts += 1
-                        attempts_left = 3 - st.session_state.otp_attempts
-                        st.error(f"❌ Invalid OTP. Attempts left: {attempts_left}")
+                        st.error("❌ Invalid OTP")
 
-            # Resend OTP
-            if st.session_state.otp_sent and time.time() - st.session_state.otp_timestamp >= 60:
-                if st.button("🔁 Resend OTP"):
-                    otp = generate_otp()
-                    if send_otp(st.session_state.email, otp):
-                        st.session_state.otp = otp
-                        st.session_state.otp_timestamp = time.time()
-                        st.session_state.otp_attempts = 0
-                        st.toast("✅ OTP resent!")
+    # ---------------------- LOGIN -----------------------
+    if mode == "Login" and not st.session_state.authenticated:
+        st.header(":blue[Log In]")
 
-    else:
-        col1, col2, col3 = st.columns([3,1,1])
+        email_input = st.text_input("Email")
+        password_input = st.text_input("Password", type="password")
 
-        with col1:
-            st.success(f"✅ Logged in as: {st.session_state.email}")
-            st.button("🔓 Logout", on_click=logout)
+        if st.button("Login"):
+            user = atai.get_user_by_email(email_input)
+            if not user:
+                st.error("❌ User not found. Please Signup.")
+            else:
+                if atai.validate_user(email_input, password_input):
+                    st.session_state.authenticated = True
+                    st.session_state.email = email_input
+                    st.toast("🎉 Login Successful!")
+                    st.switch_page("pages/Planner.py")
+                else:
+                    st.error("❌ Incorrect Password")
+
+    # --------------------- Already logged in -----------------------
+    if st.session_state.authenticated:
+        st.success(f"Logged in as: {st.session_state.email}")
+        st.button("Logout", on_click=logout)
