@@ -24,12 +24,12 @@ import pandas as pd
 #       export AMADEUS_API_KEY="..."
 #       export AMADEUS_API_SECRET="..."
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "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")
-RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "b58e49d636msh694028bab3ddeb0p1c2bdfjsnbf4a196093ba")
-AMADEUS_API_KEY = os.getenv("AMADEUS_API_KEY", "Q07WZC5nDYucN0iqAgz1turs4sByMtUk")
-AMADEUS_API_SECRET = os.getenv("AMADEUS_API_SECRET", "mq1BqngXxfJZ4F2x")
-
-IRCTC_RAPIDAPI_HOST = "irctc1.p.rapidapi.com"
+GROQ_API_KEY = st.secrets["API_KEYS"]["GROQ_API_KEY"]
+RAPIDAPI_KEY = st.secrets["API_KEYS"]["RAPIDAPI_KEY"]
+AMADEUS_API_KEY = st.secrets["API_KEYS"]["AMADEUS_API_KEY"]
+AMADEUS_API_SECRET = st.secrets["API_KEYS"]["AMADEUS_API_SECRET"]
+IRCTC_RAPIDAPI_HOST = st.secrets["API_KEYS"]["IRCTC_RAPIDAPI_HOST"]
+OPEN_WEATHER_API_KEY = st.secrets["API_KEYS"]["OPEN_WEATHER_API_KEY"]
 
 # Logging setup
 
@@ -1009,7 +1009,7 @@ def plan_flights(origin_city: str, dest_city: str, date_: str) -> List[FlightOpt
 # 13. HOTELS VIA OSM OVERPASS
 
 @st.cache_data(show_spinner=False)
-def osm_hotels_near(lat: float, lon: float, radius_m: int = 5000) -> List[HotelOption]:
+def osm_hotels_near(lat: float, lon: float, radius_m: int = 5000) -> List[Dict[str, Any]]:
     """Simple Overpass query around the destination."""
     url = "https://overpass-api.de/api/interpreter"
     query = f"""
@@ -1032,17 +1032,18 @@ def osm_hotels_near(lat: float, lon: float, radius_m: int = 5000) -> List[HotelO
         return []
 
     js = r.json()
-    out: List[HotelOption] = []
+    out: List[Dict[str, Any]] = []
 
     for el in js.get("elements", []):
         tags = el.get("tags", {})
         name = tags.get("name")
         if not name:
             continue
+
         lat_h = el.get("lat")
         lon_h = el.get("lon")
-
         t_type = tags.get("tourism")
+
         if t_type == "hostel":
             cat = "budget"
         elif t_type == "guest_house":
@@ -1050,15 +1051,13 @@ def osm_hotels_near(lat: float, lon: float, radius_m: int = 5000) -> List[HotelO
         else:
             cat = "mid"
 
-        out.append(
-            HotelOption(
-                name=name,
-                lat=lat_h,
-                lon=lon_h,
-                approx_category=cat,
-                source="OSM Overpass",
-            )
-        )
+        out.append({
+            "name": name,
+            "lat": lat_h,
+            "lon": lon_h,
+            "approx_category": cat,
+            "source": "OSM Overpass",
+        })
 
     return out
 
@@ -1603,7 +1602,25 @@ def build_full_trip(
         "bot": bot,
     }
 
-# 20. STREAMLIT UI
+# 20. WEATHER DATA FETCHER
+def get_weather_data(city: str):
+    """Fetch weather details from OpenWeather API"""
+    API_KEY = OPEN_WEATHER_API_KEY
+
+    url = (
+        f"https://api.openweathermap.org/data/2.5/weather?"
+        f"q={city}&appid={API_KEY}&units=metric"
+    )
+
+    try:
+        r = requests.get(url, timeout=5)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except:
+        return None
+
+# 21. STREAMLIT UI
 
 st.set_page_config(
     page_title="AuroraTrip AI",
@@ -1612,193 +1629,6 @@ st.set_page_config(
 )
 
 st.title(":grey[AuroraTrip AI]")
-# 3D animated background (Vanta.js GLOBE)
-# components_html(
-#     """
-#     <div id="aurora-bg"></div>
-#     <style>
-#     #aurora-bg {
-#         position: fixed;
-#         top: 0;
-#         left: 0;
-#         width: 100vw;
-#         height: 100vh;
-#         z-index: -2;
-#     }
-#     </style>
-#     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.min.js"></script>
-#     <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.globe.min.js"></script>
-#     <script>
-#     window.addEventListener('load', function() {
-#         if (!window.VANTA) return;
-#         VANTA.GLOBE({
-#           el: "#aurora-bg",
-#           mouseControls: true,
-#           touchControls: true,
-#           minHeight: 200.00,
-#           minWidth: 200.00,
-#           scale: 1.00,
-#           scaleMobile: 1.00,
-#           color: 0x22c1c3,
-#           color2: 0xfb5e7e,
-#           backgroundColor: 0x050510,
-#           size: 1.1
-#         });
-#     });
-#     </script>
-#     """,
-#     height=0,
-# )
-
-# Custom CSS for glass UI & subtle animations
-# st.markdown(
-#     """
-#     <style>
-#     body, .stApp {
-#         background: radial-gradient(circle at top left, #141726, #050511 60%);
-#         color: #f5f5f5;
-#     }
-#     #MainMenu, footer {visibility: hidden;}
-#     .main {background: transparent;}
-
-#     .glass-card {
-#         background: rgba(15, 23, 42, 0.90);
-#         border-radius: 18px;
-#         padding: 1.2rem 1.4rem;
-#         border: 1px solid rgba(148,163,184,0.4);
-#         box-shadow: 0 20px 40px rgba(0,0,0,0.45);
-#         backdrop-filter: blur(18px);
-#         -webkit-backdrop-filter: blur(18px);
-#         position: relative;
-#         overflow: hidden;
-#     }
-
-#     .glass-card::before {
-#         content: "";
-#         position: absolute;
-#         inset: -40%;
-#         background: radial-gradient(circle at top, rgba(56,189,248,0.28), transparent 60%);
-#         opacity: 0.75;
-#         mix-blend-mode: screen;
-#         transform: translate3d(-20px, -40px, 0);
-#         pointer-events: none;
-#     }
-
-#     .glass-card-lite {
-#         background: rgba(15, 23, 42, 0.92);
-#         border-radius: 16px;
-#         padding: 1rem 1.2rem;
-#         border: 1px solid rgba(148,163,184,0.5);
-#         box-shadow: 0 14px 30px rgba(0,0,0,0.45);
-#         backdrop-filter: blur(12px);
-#         -webkit-backdrop-filter: blur(12px);
-#     }
-
-#     .hero-title {
-#         font-size: 2.7rem;
-#         font-weight: 800;
-#         background: linear-gradient(120deg, #38bdf8, #a855f7, #f97316);
-#         -webkit-background-clip: text;
-#         -webkit-text-fill-color: transparent;
-#         letter-spacing: 0.05em;
-#     }
-
-#     .hero-subtitle {
-#         font-size: 0.95rem;
-#         color: #cbd5f5;
-#         margin-top: 0.4rem;
-#     }
-
-#     .pill-badge {
-#         display: inline-flex;
-#         align-items: center;
-#         gap: 0.4rem;
-#         padding: 0.25rem 0.7rem;
-#         border-radius: 999px;
-#         background: rgba(15, 118, 110, 0.2);
-#         color: #5eead4;
-#         font-size: 0.75rem;
-#         border: 1px solid rgba(45, 212, 191, 0.4);
-#     }
-
-#     .metric-label {
-#         font-size: 0.8rem;
-#         color: #9ca3af;
-#         text-transform: uppercase;
-#         letter-spacing: 0.08em;
-#     }
-
-#     .metric-value {
-#         font-size: 1.3rem;
-#         font-weight: 700;
-#         color: #e5e7eb;
-#     }
-
-#     .section-title {
-#         font-size: 1.1rem;
-#         font-weight: 700;
-#         margin-bottom: 0.4rem;
-#         color: #e5e7eb;
-#     }
-
-#     .section-subtitle {
-#         font-size: 0.85rem;
-#         color: #9ca3af;
-#         margin-bottom: 0.6rem;
-#     }
-
-#     .chip {
-#         display: inline-flex;
-#         align-items: center;
-#         padding: 0.15rem 0.6rem;
-#         border-radius: 999px;
-#         font-size: 0.7rem;
-#         border: 1px solid rgba(148,163,184,0.6);
-#         color: #e5e7eb;
-#         margin-right: 0.3rem;
-#         margin-bottom: 0.2rem;
-#     }
-
-#     .chat-bubble-user {
-#         background: linear-gradient(135deg, #0f766e, #0ea5e9);
-#         color: white;
-#         padding: 0.55rem 0.8rem;
-#         border-radius: 14px;
-#         margin-bottom: 0.35rem;
-#         margin-left: auto;
-#         max-width: 90%;
-#     }
-
-#     .chat-bubble-bot {
-#         background: rgba(15, 23, 42, 0.9);
-#         color: #e5e7eb;
-#         padding: 0.55rem 0.8rem;
-#         border-radius: 14px;
-#         margin-bottom: 0.35rem;
-#         margin-right: auto;
-#         max-width: 90%;
-#         border: 1px solid rgba(148,163,184,0.5);
-#     }
-
-#     .chat-container {
-#         max-height: 450px;
-#         overflow-y: auto;
-#         padding-right: 0.5rem;
-#     }
-
-#     .plan-button button {
-#         width: 100%;
-#         border-radius: 999px !important;
-#         font-weight: 700 !important;
-#         padding: 0.6rem 1rem !important;
-#         box-shadow: 0 10px 30px rgba(56, 189, 248, 0.4) !important;
-#         background: linear-gradient(135deg, #0ea5e9, #6366f1) !important;
-#         border: none !important;
-#     }
-#     </style>
-#     """,
-#     unsafe_allow_html=True,
-# )
 
 # Session state setup
 if "trip" not in st.session_state:
@@ -1806,40 +1636,61 @@ if "trip" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history: List[Dict[str, str]] = []
 
-# Sidebar Controls
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
+disabled_state = not st.session_state.authenticated
+
+# Sidebar Controls
 with st.sidebar:
     st.markdown("### 🧭 Trip controls")
     st.write("Configure your AI-powered journey.")
 
-    origin_city = st.text_input("Departure city", value="Delhi")
-    destination = st.text_input("Destination", value="Kashmir, India")
-    trip_days = st.slider("Trip length (days)", 1, 10, 3)
+    if st.session_state.authenticated == False:
+        st.info("🔒 Please login to plan your trip and access full features.")
+
+        if st.button("Login"):
+            st.switch_page("pages/Auth.py")
+    origin_city = st.text_input("Departure city", value="Mumbai, India", disabled=disabled_state)
+    destination = st.text_input("Destination", value="Jaipur, India", disabled=disabled_state)
+    trip_days = st.slider("Trip length (days)", 1, 10, 3, disabled=disabled_state)
 
     trip_date = st.date_input(
         "Outbound travel date",
         value=date(2025, 12, 20),
         help="Used for flights & trains (outbound).",
+        disabled=disabled_state
     )
 
-    # st.markdown("---")
-    # st.markdown("#### API status")
-    # st.caption(f"Groq key: {'✅ set' if GROQ_API_KEY else '❌ missing'}")
-    # st.caption(f"RapidAPI (IRCTC): {'✅ set' if RAPIDAPI_KEY else '❌ missing'}")
-    # st.caption(
-    #     f"Amadeus: {'✅ set' if (AMADEUS_API_KEY and AMADEUS_API_SECRET) else '❌ missing'}"
-    # )
+    map_style = st.selectbox(
+        "Map style",
+        options=["CartoDB positron", "OpenStreetMap", "CartoDB dark_matter"],
+        index=0,
+        disabled=disabled_state
+    )
 
     st.markdown("---")
     st.markdown("<div class='plan-button'>", unsafe_allow_html=True)
-    plan_button = st.button("✨ Plan my trip", type="primary")
+    plan_button = st.button("✨ Plan my trip", type="primary", disabled=disabled_state)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    st.info("Tip: try 'Kashmir', 'Goa', 'Leh', 'Munnar', 'Jaipur', etc. – the engine will adapt.")
+    def logout():
+        st.session_state.authenticated = False
+        st.session_state.trip = {}
+        st.session_state.chat_history = []
+    
+    if st.session_state.authenticated:
+            st.button("Logout", on_click=logout)
+
+
+if plan_button and not st.session_state.authenticated:
+    st.toast("🚫 Please login to plan your trip!")
+    st.stop()
+
 
 # Plan Trip
 
-if plan_button:
+if plan_button and st.session_state.authenticated:
     with st.spinner("Summoning routes, stays, and experiences..."):
         try:
             trip_obj = build_full_trip(
@@ -1854,22 +1705,10 @@ if plan_button:
         except Exception as e:
             st.error(f"Trip planning failed: {e}")
 
-trip = st.session_state.trip
+trip = st.session_state.get("trip")
+
 
 # Hero Section
-
-# col_hero_left, col_hero_right = st.columns([1.4, 1])
-
-# with col_hero_left:
-# st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-# st.markdown(
-#     """
-#     <div class="pill-badge">
-#         <span>🧠</span><span>AI Travel Operating System</span>
-#     </div>
-#     """,
-#     unsafe_allow_html=True,
-# )
 st.subheader("AI Travelling system")
 st.info("✈️ AuroraTrip AI: Smart Travel Planner Your AI travel companion that crafts thoughtful, realistic, day-wise trip plans based on your destination & length. \nNo generic lists! AuroraTrip AI builds complete, grounded itineraries: \n📅 Day-wise schedule \n🗺️ Realistic routes/distances \n🏨 Nearby stay/transport options (flights, trains)")
 
@@ -1895,41 +1734,48 @@ content_table = pd.DataFrame({
 })
 st.table(content_table)
 
-# m1, m2, m3 = st.columns(3)
-# with m1:
-#     st.markdown('<div class="metric-label">ATTRACTIONS CURATED</div>', unsafe_allow_html=True)
-#     st.markdown(f'<div class="metric-value">{total_attractions}</div>', unsafe_allow_html=True)
-# with m2:
-#     st.markdown('<div class="metric-label">TRIP LENGTH</div>', unsafe_allow_html=True)
-#     st.markdown(f'<div class="metric-value">{total_days} days</div>', unsafe_allow_html=True)
-# with m3:
-#     st.markdown('<div class="metric-label">ROUTES & STAYS</div>', unsafe_allow_html=True)
-#     st.markdown(
-#         f'<div class="metric-value">{train_count} trains · {flight_count} flights · {hotel_count} stays</div>',
-#         unsafe_allow_html=True,
-#     )
-
 st.markdown("</div>", unsafe_allow_html=True)
 
 # with col_hero_right:
 st.markdown('<div class="glass-card-lite">', unsafe_allow_html=True)
-# st.markdown(
-#     '<div class="section-title">🌍 Interactive Trip Map</div>'
-#     '<div class="section-subtitle">Visualize your destination and key hotspots at a glance.</div>',
-#     unsafe_allow_html=True,
-# )
 st.divider()
 
-col1, col2 = st.columns([1, 3])  # 1/4 left, 3/4 right
+def render_weather_metrics(weather):
+    """Show weather metrics in Streamlit metric blocks"""
+    if not weather:
+        st.warning("Weather information not available.")
+        return
+
+    temp = weather["main"]["temp"]
+    feels = weather["main"]["feels_like"]
+    humidity = weather["main"]["humidity"]
+    wind = weather["wind"]["speed"]
+    condition = weather["weather"][0]["main"]
+
+    st.subheader("🌤️ Current Weather")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Temperature (°C)", f"{temp}°C", f"Feels {feels}°C")
+    col2.metric("Condition", condition)
+    col3.metric("Humidity", f"{humidity}%")
+    col4.metric("Wind Speed", f"{wind} m/s")
+
+if destination:
+    city = destination.split(",")[0]
+    weather = get_weather_data(city)
+    render_weather_metrics(weather)
+
+col1, col2 = st.columns([3, 5])  # 1/4 left, 3/4 right
 
 with col1:
-    st.subheader("🗺 Trip Summary")
+    st.subheader("Trip Summary")
 
     if trip:
         guide = trip["guide"]
 
         # Destination title
-        st.markdown(f"### 📍 {guide['destination']}")
+        st.markdown(f"### {guide['destination']}")
 
         # Coordinates
         st.markdown(
@@ -1942,8 +1788,8 @@ with col1:
         # Top attractions
         attractions = guide.get("attractions", [])
         if attractions:
-            st.markdown("### ⭐ Attractions")
-            for a in attractions:
+            st.markdown("### Attractions")
+            for a in attractions[:4]:
                 st.markdown(
                     f"""
                     - **{a['name']}**  
@@ -1982,16 +1828,19 @@ with col2:  # Right 3/4 section for full map
             route_points = [(center_lat, center_lon)]
 
         # Create Map
+        st.subheader("Trip Map")
         m = folium.Map(
             location=[center_lat, center_lon],
             zoom_start=5,
-            tiles="CartoDB dark_matter",
+            tiles=map_style,
+            control_scale=True,
+
         )
 
         # Add markers
         if attractions:
             for a in attractions:
-                folium.CircleMarker(
+                folium.Marker(
                     location=[a["lat"], a["lon"]],
                     radius=7,
                     popup=f"{a['name']} ({a['category']})",
@@ -2027,7 +1876,6 @@ with col2:  # Right 3/4 section for full map
 
     else:
         st.info("Set origin & destination in the sidebar and click **Plan my trip**.")
-
 
 st.markdown("</div>", unsafe_allow_html=True)
 

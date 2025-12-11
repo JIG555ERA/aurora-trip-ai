@@ -1,0 +1,17 @@
+streamlit
+folium
+streamlit.componsnents.v1
+requests
+pandas
+numpy
+os
+math
+time
+logging
+datetime
+typing
+json
+dataclasses
+pymongo
+bson
+bcrypt
