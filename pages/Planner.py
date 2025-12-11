@@ -1008,8 +1008,8 @@ def plan_flights(origin_city: str, dest_city: str, date_: str) -> List[FlightOpt
 
 # 13. HOTELS VIA OSM OVERPASS
 
-@st.cache_data(show_spinner=False)
-def osm_hotels_near(lat: float, lon: float, radius_m: int = 5000) -> List[Dict[str, Any]]:
+@st.cache_resource(show_spinner=False)
+def osm_hotels_near(lat: float, lon: float, radius_m: int = 5000) -> List[HotelOption]:
     """Simple Overpass query around the destination."""
     url = "https://overpass-api.de/api/interpreter"
     query = f"""
@@ -1032,18 +1032,17 @@ def osm_hotels_near(lat: float, lon: float, radius_m: int = 5000) -> List[Dict[s
         return []
 
     js = r.json()
-    out: List[Dict[str, Any]] = []
+    out: List[HotelOption] = []
 
     for el in js.get("elements", []):
         tags = el.get("tags", {})
         name = tags.get("name")
         if not name:
             continue
-
         lat_h = el.get("lat")
         lon_h = el.get("lon")
-        t_type = tags.get("tourism")
 
+        t_type = tags.get("tourism")
         if t_type == "hostel":
             cat = "budget"
         elif t_type == "guest_house":
@@ -1051,13 +1050,15 @@ def osm_hotels_near(lat: float, lon: float, radius_m: int = 5000) -> List[Dict[s
         else:
             cat = "mid"
 
-        out.append({
-            "name": name,
-            "lat": lat_h,
-            "lon": lon_h,
-            "approx_category": cat,
-            "source": "OSM Overpass",
-        })
+        out.append(
+            HotelOption(
+                name=name,
+                lat=lat_h,
+                lon=lon_h,
+                approx_category=cat,
+                source="OSM Overpass",
+            )
+        )
 
     return out
 
@@ -1687,6 +1688,61 @@ if plan_button and not st.session_state.authenticated:
     st.toast("🚫 Please login to plan your trip!")
     st.stop()
 
+st.markdown(
+    """
+    <style>
+    body, .stApp {
+        background: radial-gradient(circle at top left, #141726, #050511 60%);
+        color: #f5f5f5;
+    }
+
+    /* USER MESSAGE ROW (RIGHT) */
+    .chat-row-user {
+        display: flex;
+        justify-content: flex-end;   /* Right align */
+        width: 100%;
+        margin-bottom: 0.4rem;
+    }
+
+    /* BOT MESSAGE ROW (LEFT) */
+    .chat-row-bot {
+        display: flex;
+        justify-content: flex-start;  /* Left align */
+        width: 100%;
+        margin-bottom: 0.4rem;
+    }
+
+    /* USER BUBBLE */
+    .chat-bubble-user {
+        background: linear-gradient(135deg, #0f766e, #0ea5e9);
+        color: white;
+        padding: 0.55rem 0.8rem;
+        border-radius: 14px;
+
+        display: inline-block;
+        width: fit-content;
+        max-width: 75%;
+        word-wrap: break-word;
+        overflow-wrap: anywhere;
+    }
+
+    /* BOT BUBBLE */
+    .chat-bubble-bot {
+        background: rgba(15, 23, 42, 0.9);
+        color: #e5e7eb;
+        padding: 0.55rem 0.8rem;
+        border-radius: 14px;
+        max-width: 75%;
+        width: fit-content;
+        word-wrap: break-word;
+        overflow-wrap: anywhere;
+        border: 1px solid rgba(148,163,184,0.5);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # Plan Trip
 
@@ -1904,13 +1960,10 @@ if date_info.get("holiday_hits") or date_info.get("is_weekend_heavy"):
     st.warning(" ".join(txt))
 
 # Tabs
-
-tab_overview, tab_itinerary, tab_transport, tab_stays, tab_budget, tab_chat, tab_raw = st.tabs(
-    ["🌐 Overview", "🗺 Itinerary", "🚄 Transport", "🏨 Stays", "💰 Budget", "🤖 AI Companion", "💾 Raw JSON"]
+tab_overview, tab_itinerary, tab_transport, tab_stays, tab_budget, tab_chat = st.tabs(
+    ["🌐 Overview", "📝 Itinerary", "🚄 Transport", "🏨 Stays", "💰 Budget", "🤖 AI Companion"]
 )
-
 # Overview Tab
-
 with tab_overview:
     c1, c2 = st.columns([1.3, 1])
 
@@ -1967,7 +2020,6 @@ with tab_overview:
                     break
 
 # Itinerary Tab
-
 with tab_itinerary:
     st.markdown("### Day-wise plan")
     for day in guide.get("itinerary", []):
@@ -2187,9 +2239,8 @@ with tab_budget:
     st.write(advice_text)
 
 # Chat Tab
-
 with tab_chat:
-    st.markdown("### 🤖 AuroraTrip AI – Your travel companion")
+    st.markdown("### AuroraTrip AI – Your travel companion")
 
     chat_container = st.container()
     with chat_container:
@@ -2224,13 +2275,13 @@ with tab_chat:
 
 # Raw JSON Tab
 
-with tab_raw:
-    st.markdown("### Debug / Raw view")
-    raw = {
-        "guide": guide,
-        "transport": transport,
-        "hotels": hotels,
-        "date_info": date_info,
-        "note": "Budget info is recomputed in the Budget tab based on UI selection.",
-    }
-    st.json(raw)
+# with tab_raw:
+#     st.markdown("### Debug / Raw view")
+#     raw = {
+#         "guide": guide,
+#         "transport": transport,
+#         "hotels": hotels,
+#         "date_info": date_info,
+#         "note": "Budget info is recomputed in the Budget tab based on UI selection.",
+#     }
+#     st.json(raw)

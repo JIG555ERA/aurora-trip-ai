@@ -1,0 +1,6 @@
+globe_emoji = "🌐"
+iteration_emoji = "📝"
+transport_emoji = "🚄"
+stay_emoji = "🏨"
+budget_emoji = "💰"
+ai_companion_emoji = "🤖"
