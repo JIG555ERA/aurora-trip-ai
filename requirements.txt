@@ -3,6 +3,5 @@ folium
 requests
 pandas
 numpy
-pymongo
+pymongo==4.6.3
 bcrypt
-bson
