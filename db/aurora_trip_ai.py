@@ -1,9 +1,10 @@
 from pymongo import MongoClient, errors
 from bson.objectid import ObjectId
 import bcrypt
+import streamlit as st
 
+MONGO_URI = st.secrets["API_KEYS"]["MONGO_URI"]
 
-MONGO_URI = "mongodb+srv://makdasansari_db_user:qidyTle91W2SJB3x@cluster0.yor7sac.mongodb.net/?appName=Cluster0"
 DB_NAME = "aurora_trip_ai_db"
 
 client = MongoClient(MONGO_URI)
