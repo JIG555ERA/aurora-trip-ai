@@ -92,8 +92,7 @@ EVENT_GALLERY = [
 
 # Page: Sidebar
 
-st.sidebar.title("AuroraTrip AI — Control Panel")
-st.sidebar.markdown("Use this panel to quickly demo and change input values for the homepage demos.")
+st.sidebar.image("assets/aurora_ai_logo.png", caption="AuroraTrip AI")
 st.sidebar.info("This page holds sample/demo data. Visit **Planner Page** for full trip planning features.")
 
 destination = st.sidebar.text_input("Destination", value=SAMPLE_GUIDE["destination"], disabled=True)

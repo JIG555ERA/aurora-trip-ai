@@ -1644,8 +1644,7 @@ disabled_state = not st.session_state.authenticated
 
 # Sidebar Controls
 with st.sidebar:
-    st.markdown("### 🧭 Trip controls")
-    st.write("Configure your AI-powered journey.")
+    st.subheader("Plan Your Trip")
 
     if st.session_state.authenticated == False:
         st.info("🔒 Please login to plan your trip and access full features.")
